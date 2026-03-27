@@ -1,0 +1,11 @@
+node_modules/
+__pycache__/
+
+dist/
+build/
+
+.env
+.venv/
+
+.eslintcache
+.pytest_cache/
