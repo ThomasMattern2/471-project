@@ -31,7 +31,7 @@ const icons = {
   user:  createEmojiIcon('📍', '#f5a623'),
 };
 
-// ─── S4G3A-26: Haversine Distance ────────────────────────────────────────────
+// ─── Routing Functions ────────────────────────────────────────────────────────
 const EARTH_RADIUS_KM = 6371;
 const toRad = (deg) => (deg * Math.PI) / 180;
 
@@ -70,11 +70,10 @@ function buildEvacuationRoute(origin, destination) {
   return waypoints;
 }
 
-// ─── Cache Key ────────────────────────────────────────────────────────────────
 const CACHE_KEY = 'drcs_offline_map_cache';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const DashboardMapScreen = () => {
+const DashboardMapScreen = ({ onNavigate, role }) => {
   const calgaryCenter = [51.0447, -114.0719];
 
   const [isOffline, setIsOffline]             = useState(false);
@@ -83,7 +82,6 @@ const DashboardMapScreen = () => {
   const [nearestZoneInfo, setNearestZoneInfo] = useState(null);
   const [userPosition, setUserPosition]       = useState(null);
 
-  // Safe zones spread across Calgary — NW, S, NE — so they don't overlap at zoom 12
   const [incidents, setIncidents] = useState([
     { id: 1, pos: [51.0447, -114.1219], type: 'flood', title: 'Flood Alert — West Calgary' },
     { id: 2, pos: [51.0200, -113.9800], type: 'flood', title: 'Flood Alert — SE Calgary' },
@@ -94,7 +92,6 @@ const DashboardMapScreen = () => {
     { id: 103, pos: [51.0750, -113.9400], title: 'Safe Zone C — NE Arena' },
   ]);
 
-  // Real browser online/offline events
   useEffect(() => {
     const goOffline = () => setIsOffline(true);
     const goOnline  = () => setIsOffline(false);
@@ -106,7 +103,6 @@ const DashboardMapScreen = () => {
     };
   }, []);
 
-  // S4G3A-25: Restore from cache when going offline
   useEffect(() => {
     if (isOffline) {
       try {
@@ -122,7 +118,6 @@ const DashboardMapScreen = () => {
     }
   }, [isOffline]);
 
-  // S4G3A-25: Write cache
   const handleCacheMap = useCallback(() => {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -135,7 +130,6 @@ const DashboardMapScreen = () => {
     }
   }, [incidents, safeZones]);
 
-  // S4G3A-26: Real Haversine routing
   const handleFindNearestExit = useCallback(() => {
     const computeRoute = (origin) => {
       const result = findNearestZone(origin, safeZones);
@@ -166,122 +160,133 @@ const DashboardMapScreen = () => {
   };
 
   return (
-    <div style={{ backgroundColor: '#111', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', height: '800px', borderRadius: '40px', position: 'relative', overflow: 'hidden', border: '10px solid #222' }}>
+    <div style={{ minHeight: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0 20px 20px', width: '100%' }}>
+      {/* Mobile Device Container */}
+      <div style={{ width: '100%', maxWidth: '400px', height: '800px', borderRadius: '40px', position: 'relative', overflow: 'hidden', border: '8px solid #333', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#000' }}>
 
-        {/* ── Map Layer ─────────────────────────────────────────────────────────
-            KEY FIX: TileLayer is ALWAYS present regardless of isOffline.
-            - Online:  tiles load from CDN normally.
-            - Offline: tiles the browser already cached still render fine.
-                       Uncached tiles show as grey squares — far better than a void.
-            The blueprint grid is a CSS overlay ON TOP of the tile layer in offline
-            mode, not a replacement for it.
-        ──────────────────────────────────────────────────────────────────────── */}
+        {/* ── Map Layer ── */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-          <MapContainer
-            center={calgaryCenter}
-            zoom={12}
-            style={{ height: '100%', width: '100%' }}
-            zoomControl={false}
-          >
+          <MapContainer center={calgaryCenter} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
             <TileLayer
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              // Transparent 1x1 GIF for tiles that can't load offline (no ugly broken-image)
               errorTileUrl="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
             />
-
             {incidents.map(inc => (
-              <Marker key={inc.id} position={inc.pos} icon={icons.flood}>
-                <Popup>{inc.title}</Popup>
-              </Marker>
+              <Marker key={inc.id} position={inc.pos} icon={icons.flood}><Popup>{inc.title}</Popup></Marker>
             ))}
-
             {safeZones.map(zone => (
-              <Marker key={zone.id} position={zone.pos} icon={icons.safe}>
-                <Popup>{zone.title}</Popup>
-              </Marker>
+              <Marker key={zone.id} position={zone.pos} icon={icons.safe}><Popup>{zone.title}</Popup></Marker>
             ))}
-
             {userPosition && (
-              <Marker position={userPosition} icon={icons.user}>
-                <Popup>Your Location</Popup>
-              </Marker>
+              <Marker position={userPosition} icon={icons.user}><Popup>Your Location</Popup></Marker>
             )}
-
             {evacuationPath && (
-              <Polyline
-                positions={evacuationPath}
-                color="#f5a623"
-                weight={6}
-                dashArray="15, 10"
-                opacity={0.9}
-              />
+              <Polyline positions={evacuationPath} color="#f5a623" weight={6} dashArray="15, 10" opacity={0.9} />
             )}
           </MapContainer>
 
-          {/* Blueprint grid overlaid ON the map in offline mode (NFR-02) */}
           {isOffline && (
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 500,
-              backgroundImage: `
-                linear-gradient(rgba(0,191,255,0.06) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,191,255,0.06) 1px, transparent 1px)
-              `,
-              backgroundSize: '40px 40px',
-            }} />
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 500, backgroundImage: `linear-gradient(rgba(0,191,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,191,255,0.06) 1px, transparent 1px)`, backgroundSize: '40px 40px' }} />
           )}
         </div>
 
-        {/* ── UI Overlay ── */}
-        <div style={{ position: 'absolute', top: 0, width: '100%', zIndex: 10, pointerEvents: 'none' }}>
-          <div style={{ padding: '10px 25px', display: 'flex', justifyContent: 'space-between', color: '#fff', fontWeight: 'bold' }}>
+        {/* ── Top UI Overlay ── */}
+        <div style={{ position: 'absolute', top: 0, width: '100%', zIndex: 10, pointerEvents: 'none', paddingTop: '15px' }}>
+          
+          {/* Status Bar */}
+          <div style={{ padding: '0 25px 15px', display: 'flex', justifyContent: 'space-between', color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
             <span>9:41</span>
-            <div>{isOffline ? '📵' : '📶'} 🔋</div>
+            <div style={{ display: 'flex', gap: '5px' }}>
+              <span>{isOffline ? '📵' : '📶'}</span>
+              <span>🔋</span>
+            </div>
           </div>
 
-          {isOffline && (
-            <div style={{ backgroundColor: '#d9534f', color: '#fff', padding: '14px', textAlign: 'center', fontWeight: '900', pointerEvents: 'auto' }}>
-              ⚠️ NO SIGNAL — USING DEVICE CACHE
-            </div>
-          )}
-
-          {nearestZoneInfo && (
-            <div style={{ backgroundColor: 'rgba(245,166,35,0.95)', color: '#fff', padding: '10px 20px', textAlign: 'center', fontWeight: '800', pointerEvents: 'auto' }}>
-              🧭 Route to <strong>{nearestZoneInfo.title}</strong> — {nearestZoneInfo.distanceKm} km
-            </div>
-          )}
-
-          <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '12px', pointerEvents: 'auto' }}>
+          <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '15px', pointerEvents: 'auto' }}>
+            
+            {/* Action Buttons (Side by Side) */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={handleCacheMap}
-                style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: cacheActive ? '#5cb85c' : '#444', color: '#fff', fontWeight: '900', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(50,50,50,0.85)', backdropFilter: 'blur(5px)', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
               >
-                {cacheActive ? '✓ CACHED' : '📥 CACHE MAP'}
+                {cacheActive ? '✅ CACHED' : '📥 CACHE MAP'}
               </button>
               <button
                 onClick={handleToggleOffline}
-                style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: isOffline ? '#d9534f' : '#333', color: '#fff', fontWeight: '900', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(50,50,50,0.85)', backdropFilter: 'blur(5px)', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
               >
-                {isOffline ? '📡 OFFLINE' : '📶 ONLINE'}
+                {isOffline ? '📵 OFFLINE' : '📶 ONLINE'}
               </button>
             </div>
+
+            {/* Find Nearest Exit Button */}
             <button
               onClick={handleFindNearestExit}
-              style={{ width: '100%', padding: '18px', borderRadius: '16px', border: 'none', backgroundColor: '#f5a623', color: '#fff', fontWeight: '900', fontSize: '16px', cursor: 'pointer' }}
+              style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: '#eeb030', color: '#fff', fontWeight: '800', fontSize: '15px', cursor: 'pointer', boxShadow: '0 4px 10px rgba(238, 176, 48, 0.3)' }}
             >
               FIND NEAREST EXIT
             </button>
           </div>
+
+          {/* Dynamic Warnings */}
+          {isOffline && (
+            <div style={{ backgroundColor: '#d9534f', color: '#fff', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginTop: '15px' }}>
+              USING DEVICE CACHE
+            </div>
+          )}
+          {nearestZoneInfo && (
+            <div style={{ backgroundColor: 'rgba(245,166,35,0.95)', color: '#fff', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', marginTop: '15px' }}>
+              🧭 Route to {nearestZoneInfo.title} — {nearestZoneInfo.distanceKm} km
+            </div>
+          )}
         </div>
 
-        {/* ── Navigation Bar ── */}
-        <div style={{ position: 'absolute', bottom: 0, width: '100%', zIndex: 10, backgroundColor: '#cbdab7', padding: '30px', borderTopLeftRadius: '40px', borderTopRightRadius: '40px', display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '30px', opacity: 0.6 }}>◎</span>
-          <button style={{ position: 'absolute', top: '-45px', left: '50%', transform: 'translateX(-50%)', width: '90px', height: '90px', borderRadius: '50%', backgroundColor: '#d9534f', border: '8px solid #cbdab7', color: '#fff', fontSize: '50px', cursor: 'pointer' }}>
-            +
+        {/* ── Bottom Navigation Bar ── */}
+        <div style={{ 
+          position: 'absolute', bottom: 0, width: '100%', zIndex: 10, 
+          backgroundColor: '#cde0c5', // Sage green from your mockup
+          height: '80px', 
+          borderTopLeftRadius: '40px', borderTopRightRadius: '40px', 
+          display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+          padding: '0 20px', boxSizing: 'border-box'
+        }}>
+          
+          {/* Left Icon (Map/Dashboard) */}
+          <button 
+            onClick={() => onNavigate('dashboard')}
+            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.5 }}
+          >
+            ◎
           </button>
-          <span style={{ fontSize: '30px', opacity: 0.6 }}>👤</span>
+
+          {/* Center Floating Action Button (Dynamic based on Role) */}
+          <div style={{ position: 'relative', width: '70px', height: '70px' }}>
+            <button 
+              onClick={() => onNavigate(role === 'government' ? 'official' : 'report')}
+              style={{ 
+                position: 'absolute', top: '-35px', left: '0', 
+                width: '70px', height: '70px', borderRadius: '50%', 
+                backgroundColor: role === 'government' ? '#9aaadd' : '#cd5c5c', // Blue for gov, Red for civilian
+                border: '6px solid #cde0c5', // Matches the nav background to create cutout effect
+                color: '#fff', fontSize: role === 'government' ? '28px' : '36px', fontWeight: '300', 
+                cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                boxSizing: 'border-box'
+              }}
+              title={role === 'government' ? 'Issue Dispatch' : 'Report Disaster'}
+            >
+              {role === 'government' ? '📢' : '+'}
+            </button>
+          </div>
+
+          {/* Right Icon (Profile placeholder) */}
+          <button 
+            onClick={() => alert(`Currently logged in as: ${role === 'government' ? 'Government Dispatcher' : 'Civilian'}`)}
+            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.5 }}
+          >
+            👤
+          </button>
+          
         </div>
       </div>
     </div>

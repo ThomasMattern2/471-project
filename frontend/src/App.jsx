@@ -4,66 +4,46 @@ import ReportDisasterScreen from './ReportDisasterScreen';
 import OfficialBroadcastScreen from './OfficialBroadcastScreen';
 
 const App = () => {
-  // State to manage which screen is currently visible. Defaulting to the new Dashboard.
+  // State to manage which screen is currently visible
   const [currentView, setCurrentView] = useState('dashboard'); 
+  
+  // State to manage the mock user role for the demo
+  const [userRole, setUserRole] = useState('citizen'); // 'citizen' | 'government'
 
   return (
     <div style={{ backgroundColor: '#1a1a1a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
-      {/* Global Navigation Bar for Demo Purposes */}
-      <nav style={{ 
-        backgroundColor: '#222', 
-        padding: '20px', 
+      {/* --- DEMO ROLE SWITCHER (For Graders/Presentations) --- */}
+      <div style={{ 
+        backgroundColor: '#333', 
+        padding: '10px 20px', 
         display: 'flex', 
         justifyContent: 'center', 
+        alignItems: 'center',
         gap: '15px',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-        zIndex: 10,
-        flexWrap: 'wrap'
+        color: '#fff',
+        fontFamily: 'sans-serif',
+        borderBottom: '2px solid #555'
       }}>
-        <button 
-          onClick={() => setCurrentView('dashboard')}
-          style={{ 
-            padding: '12px 20px', borderRadius: '12px', border: 'none', 
-            backgroundColor: currentView === 'dashboard' ? '#4a5d4e' : '#444', 
-            color: currentView === 'dashboard' ? '#fff' : '#ccc', 
-            cursor: 'pointer', fontWeight: 'bold', fontSize: '15px',
-            transition: 'all 0.2s'
+        <span style={{ fontWeight: 'bold' }}>Demo Persona:</span>
+        <select 
+          value={userRole} 
+          onChange={(e) => {
+            setUserRole(e.target.value);
+            setCurrentView('dashboard'); // Reset to dashboard on role change
           }}
+          style={{ padding: '8px', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }}
         >
-          🗺️ Dashboard
-        </button>
-        <button 
-          onClick={() => setCurrentView('report')}
-          style={{ 
-            padding: '12px 20px', borderRadius: '12px', border: 'none', 
-            backgroundColor: currentView === 'report' ? '#cbdab7' : '#444', 
-            color: currentView === 'report' ? '#1a1a1a' : '#ccc', 
-            cursor: 'pointer', fontWeight: 'bold', fontSize: '15px',
-            transition: 'all 0.2s'
-          }}
-        >
-          🚨 Report Incident
-        </button>
-        <button 
-          onClick={() => setCurrentView('official')}
-          style={{ 
-            padding: '12px 20px', borderRadius: '12px', border: 'none', 
-            backgroundColor: currentView === 'official' ? '#b7c8da' : '#444', 
-            color: currentView === 'official' ? '#1a1a1a' : '#ccc', 
-            cursor: 'pointer', fontWeight: 'bold', fontSize: '15px',
-            transition: 'all 0.2s'
-          }}
-        >
-          🛡️ Official Dispatch
-        </button>
-      </nav>
+          <option value="citizen">👤 Civilian (Can Report)</option>
+          <option value="government">🛡️ Government (Can Dispatch)</option>
+        </select>
+      </div>
 
       {/* Dynamic View Rendering */}
-      <div style={{ flex: 1 }}>
-        {currentView === 'dashboard' && <DashboardMapScreen />}
-        {currentView === 'report' && <ReportDisasterScreen />}
-        {currentView === 'official' && <OfficialBroadcastScreen />}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingTop: '20px' }}>
+        {currentView === 'dashboard' && <DashboardMapScreen onNavigate={setCurrentView} role={userRole} />}
+        {currentView === 'report' && <ReportDisasterScreen onNavigate={setCurrentView} />}
+        {currentView === 'official' && <OfficialBroadcastScreen onNavigate={setCurrentView} />}
       </div>
 
     </div>
