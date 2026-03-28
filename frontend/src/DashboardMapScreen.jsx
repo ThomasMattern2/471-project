@@ -227,6 +227,26 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
             >
               FIND NEAREST EXIT
             </button>
+
+            {/* Government: Generate Report */}
+            {role === 'government' && (
+              <button
+                onClick={() => onNavigate('postreport')}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(44,74,122,0.88)', backdropFilter: 'blur(5px)', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+              >
+                📋 GENERATE REPORT
+              </button>
+            )}
+
+            {/* Citizen: Emergency Alert → Evacuation */}
+            {role === 'citizen' && (
+              <button
+                onClick={() => onNavigate('evacuation')}
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: 'rgba(220,38,38,0.88)', backdropFilter: 'blur(5px)', color: '#fff', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', animation: 'none' }}
+              >
+                ⚠️ EMERGENCY ALERT — TAP TO EVACUATE
+              </button>
+            )}
           </div>
 
           {/* Dynamic Warnings */}
@@ -252,36 +272,54 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
           padding: '0 20px', boxSizing: 'border-box'
         }}>
           
-          {/* Left Icon (Map/Dashboard) */}
-          <button 
-            onClick={() => onNavigate('dashboard')}
-            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.5 }}
+          {/* Left Icon — verify queue for government, dashboard home for others */}
+          <button
+            onClick={() => onNavigate(role === 'government' ? 'verify' : 'dashboard')}
+            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.7 }}
+            title={role === 'government' ? 'Incident Verification' : 'Dashboard'}
           >
-            ◎
+            {role === 'government' ? '🔍' : '◎'}
           </button>
 
           {/* Center Floating Action Button (Dynamic based on Role) */}
           <div style={{ position: 'relative', width: '70px', height: '70px' }}>
-            <button 
-              onClick={() => onNavigate(role === 'government' ? 'official' : 'report')}
-              style={{ 
-                position: 'absolute', top: '-35px', left: '0', 
-                width: '70px', height: '70px', borderRadius: '50%', 
-                backgroundColor: role === 'government' ? '#9aaadd' : '#cd5c5c', // Blue for gov, Red for civilian
-                border: '6px solid #cde0c5', // Matches the nav background to create cutout effect
-                color: '#fff', fontSize: role === 'government' ? '28px' : '36px', fontWeight: '300', 
+            <button
+              onClick={() => onNavigate(
+                role === 'government'     ? 'official' :
+                role === 'first_responder' ? 'firstresponder' :
+                'report'
+              )}
+              style={{
+                position: 'absolute', top: '-35px', left: '0',
+                width: '70px', height: '70px', borderRadius: '50%',
+                backgroundColor:
+                  role === 'government'      ? '#9aaadd' :
+                  role === 'first_responder' ? '#c8851a' :
+                  '#cd5c5c',
+                border: '6px solid #cde0c5',
+                color: '#fff',
+                fontSize: role === 'citizen' ? '36px' : '28px',
+                fontWeight: '300',
                 cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center',
                 boxSizing: 'border-box'
               }}
-              title={role === 'government' ? 'Issue Dispatch' : 'Report Disaster'}
+              title={
+                role === 'government'      ? 'Issue Dispatch' :
+                role === 'first_responder' ? 'Update Status' :
+                'Report Disaster'
+              }
             >
-              {role === 'government' ? '📢' : '+'}
+              {role === 'government' ? '📢' : role === 'first_responder' ? '🚒' : '+'}
             </button>
           </div>
 
           {/* Right Icon (Profile placeholder) */}
-          <button 
-            onClick={() => alert(`Currently logged in as: ${role === 'government' ? 'Government Dispatcher' : 'Civilian'}`)}
+          <button
+            onClick={() => alert(
+              role === 'government'      ? 'Logged in as: Government Dispatcher' :
+              role === 'first_responder' ? 'Logged in as: First Responder' :
+              'Logged in as: Civilian'
+            )}
             style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.5 }}
           >
             👤

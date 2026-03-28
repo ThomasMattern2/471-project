@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import DashboardMapScreen from './DashboardMapScreen';
 import ReportDisasterScreen from './ReportDisasterScreen';
 import OfficialBroadcastScreen from './OfficialBroadcastScreen';
+import FirstResponderScreen from './FirstResponderScreen';
+import IncidentVerificationScreen from './IncidentVerificationScreen';
+import PostEventReportScreen from './PostEventReportScreen';
+import EvacuationScreen from './EvacuationScreen';
 
 const App = () => {
   // State to manage which screen is currently visible
@@ -35,15 +39,20 @@ const App = () => {
           style={{ padding: '8px', borderRadius: '5px', cursor: 'pointer', backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }}
         >
           <option value="citizen">👤 Civilian (Can Report)</option>
-          <option value="government">🛡️ Government (Can Dispatch)</option>
+          <option value="government">🛡️ Government (Can Dispatch &amp; Verify)</option>
+          <option value="first_responder">🚒 First Responder (Can Update Status)</option>
         </select>
       </div>
 
       {/* Dynamic View Rendering */}
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingTop: '20px' }}>
-        {currentView === 'dashboard' && <DashboardMapScreen onNavigate={setCurrentView} role={userRole} />}
-        {currentView === 'report' && <ReportDisasterScreen onNavigate={setCurrentView} />}
-        {currentView === 'official' && <OfficialBroadcastScreen onNavigate={setCurrentView} />}
+        {currentView === 'dashboard'      && <DashboardMapScreen          onNavigate={setCurrentView} role={userRole} />}
+        {currentView === 'report'         && <ReportDisasterScreen         onNavigate={setCurrentView} />}
+        {currentView === 'official'       && <OfficialBroadcastScreen      onNavigate={setCurrentView} />}
+        {currentView === 'firstresponder' && <FirstResponderScreen         onNavigate={setCurrentView} />}
+        {currentView === 'verify'         && <IncidentVerificationScreen   onNavigate={setCurrentView} />}
+        {currentView === 'postreport'     && <PostEventReportScreen        onNavigate={setCurrentView} />}
+        {currentView === 'evacuation'     && <EvacuationScreen             onNavigate={setCurrentView} />}
       </div>
 
     </div>

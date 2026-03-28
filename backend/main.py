@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -20,6 +20,8 @@ app.add_middleware(
 # --- IN-MEMORY DATABASES ---
 incidents_db = []
 broadcasts_db = []
+responders_db = []
+safe_users_db = []
 
 # --- SCHEMAS ---
 class IncidentReport(BaseModel):
@@ -33,6 +35,22 @@ class IncidentResponse(IncidentReport):
     id: str
     is_verified: bool = False
     reportedAt: datetime
+    severity: Optional[str] = None
+    verifiedAt: Optional[datetime] = None
+
+class VerifyIncidentRequest(BaseModel):
+    severity: str = Field(..., description="Severity level: low, medium, high, critical")
+
+class ResponderStatusRequest(BaseModel):
+    responder_id: str = Field(..., description="ID of the first responder")
+    incident_id: str  = Field(..., description="ID of the incident being responded to")
+    status: str       = Field(..., description="Current status: En Route, On Scene, Need Assistance, Complete")
+    notes: Optional[str] = ""
+
+class SafeStatusRequest(BaseModel):
+    user_id: str = Field(..., description="ID of the user marking themselves safe")
+    coordinates: Optional[List[float]] = Field(None, description="[longitude, latitude] of the user")
+    incident_id: Optional[str] = Field(None, description="Incident the user is evacuating from")
 
 class BroadcastRequest(BaseModel):
     message: str = Field(..., description="The urgent update message")
@@ -91,3 +109,78 @@ async def create_broadcast(broadcast: BroadcastRequest):
 async def get_broadcasts():
     """Helper endpoint to view all dispatched broadcasts"""
     return broadcasts_db
+
+@app.patch("/api/incidents/{incident_id}/verify", response_model=IncidentResponse)
+async def verify_incident(incident_id: str, verify_data: VerifyIncidentRequest):
+    """Verify an incident report and set its severity level (government officials only)"""
+    valid_severities = {"low", "medium", "high", "critical"}
+    if verify_data.severity not in valid_severities:
+        raise HTTPException(status_code=400, detail=f"Invalid severity. Must be one of: {', '.join(valid_severities)}")
+    for i, incident in enumerate(incidents_db):
+        if incident.id == incident_id:
+            updated = incident.model_copy(update={
+                "is_verified": True,
+                "severity":    verify_data.severity,
+                "verifiedAt":  datetime.now(),
+            })
+            incidents_db[i] = updated
+            return updated
+    raise HTTPException(status_code=404, detail="Incident not found")
+
+@app.post("/api/responders/status", status_code=201)
+async def update_responder_status(status_update: ResponderStatusRequest):
+    """Submit a first responder status update.
+    'Need Assistance' is publicly visible; all other statuses route to the government dashboard only."""
+    valid_statuses = {"En Route", "On Scene", "Need Assistance", "Complete"}
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    entry = {
+        "id":           str(uuid.uuid4()),
+        "responder_id": status_update.responder_id,
+        "incident_id":  status_update.incident_id,
+        "status":       status_update.status,
+        "notes":        status_update.notes,
+        "is_public":    status_update.status == "Need Assistance",
+        "submittedAt":  datetime.now().isoformat(),
+    }
+    responders_db.append(entry)
+    return {"status": "success", "data": entry}
+
+@app.get("/api/responders/status")
+async def get_responder_statuses():
+    """Helper endpoint to view all responder status updates"""
+    return responders_db
+
+@app.get("/api/incidents/{incident_id}/report")
+async def get_incident_report(incident_id: str):
+    """Compiled timeline for a single incident: full incident details + all linked responder updates"""
+    incident = next((inc for inc in incidents_db if inc.id == incident_id), None)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    linked_updates = sorted(
+        [r for r in responders_db if r["incident_id"] == incident_id],
+        key=lambda x: x["submittedAt"]
+    )
+    return {
+        "incident":           incident,
+        "responder_timeline": linked_updates,
+        "generated_at":       datetime.now().isoformat(),
+    }
+
+@app.post("/api/users/safe-status", status_code=201)
+async def mark_user_safe(safe_status: SafeStatusRequest):
+    """Mark a user as safe during an emergency evacuation"""
+    entry = {
+        "id":          str(uuid.uuid4()),
+        "user_id":     safe_status.user_id,
+        "coordinates": safe_status.coordinates,
+        "incident_id": safe_status.incident_id,
+        "markedAt":    datetime.now().isoformat(),
+    }
+    safe_users_db.append(entry)
+    return {"status": "success", "data": entry}
+
+@app.get("/api/users/safe-status")
+async def get_safe_users():
+    """Helper endpoint to view all users who have marked themselves safe"""
+    return safe_users_db
