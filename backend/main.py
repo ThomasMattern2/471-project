@@ -21,7 +21,6 @@ app.add_middleware(
 incidents_db = []
 broadcasts_db = []
 responders_db = []
-safe_users_db = []
 
 # --- SCHEMAS ---
 class IncidentReport(BaseModel):
@@ -46,11 +45,6 @@ class ResponderStatusRequest(BaseModel):
     incident_id: str  = Field(..., description="ID of the incident being responded to")
     status: str       = Field(..., description="Current status: En Route, On Scene, Need Assistance, Complete")
     notes: Optional[str] = ""
-
-class SafeStatusRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user marking themselves safe")
-    coordinates: Optional[List[float]] = Field(None, description="[longitude, latitude] of the user")
-    incident_id: Optional[str] = Field(None, description="Incident the user is evacuating from")
 
 class BroadcastRequest(BaseModel):
     message: str = Field(..., description="The urgent update message")
@@ -166,21 +160,3 @@ async def get_incident_report(incident_id: str):
         "responder_timeline": linked_updates,
         "generated_at":       datetime.now().isoformat(),
     }
-
-@app.post("/api/users/safe-status", status_code=201)
-async def mark_user_safe(safe_status: SafeStatusRequest):
-    """Mark a user as safe during an emergency evacuation"""
-    entry = {
-        "id":          str(uuid.uuid4()),
-        "user_id":     safe_status.user_id,
-        "coordinates": safe_status.coordinates,
-        "incident_id": safe_status.incident_id,
-        "markedAt":    datetime.now().isoformat(),
-    }
-    safe_users_db.append(entry)
-    return {"status": "success", "data": entry}
-
-@app.get("/api/users/safe-status")
-async def get_safe_users():
-    """Helper endpoint to view all users who have marked themselves safe"""
-    return safe_users_db

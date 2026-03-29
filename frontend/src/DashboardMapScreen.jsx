@@ -31,6 +31,17 @@ const icons = {
   user:  createEmojiIcon('📍', '#f5a623'),
 };
 
+const SEVERITY_MARKER_COLORS = { low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444' };
+
+const getIncidentIcon = (incident, role) => {
+  if (role === 'government' && incident.is_verified && incident.severity) {
+    return createEmojiIcon('⚠️', SEVERITY_MARKER_COLORS[incident.severity] || '#337ab7');
+  }
+  return icons.flood;
+};
+
+const STATUS_COLORS = { 'En Route': '#3b82f6', 'On Scene': '#22c55e', 'Need Assistance': '#ef4444', 'Complete': '#6b7280' };
+
 // ─── Routing Functions ────────────────────────────────────────────────────────
 const EARTH_RADIUS_KM = 6371;
 const toRad = (deg) => (deg * Math.PI) / 180;
@@ -76,15 +87,17 @@ const CACHE_KEY = 'drcs_offline_map_cache';
 const DashboardMapScreen = ({ onNavigate, role }) => {
   const calgaryCenter = [51.0447, -114.0719];
 
-  const [isOffline, setIsOffline]             = useState(false);
-  const [cacheActive, setCacheActive]         = useState(false);
-  const [evacuationPath, setEvacuationPath]   = useState(null);
-  const [nearestZoneInfo, setNearestZoneInfo] = useState(null);
-  const [userPosition, setUserPosition]       = useState(null);
+  const [isOffline, setIsOffline]                 = useState(false);
+  const [cacheActive, setCacheActive]             = useState(false);
+  const [evacuationPath, setEvacuationPath]       = useState(null);
+  const [nearestZoneInfo, setNearestZoneInfo]     = useState(null);
+  const [userPosition, setUserPosition]           = useState(null);
+  const [teamPanelOpen, setTeamPanelOpen]         = useState(false);
+  const [responderStatuses, setResponderStatuses] = useState([]);
 
   const [incidents, setIncidents] = useState([
-    { id: 1, pos: [51.0447, -114.1219], type: 'flood', title: 'Flood Alert — West Calgary' },
-    { id: 2, pos: [51.0200, -113.9800], type: 'flood', title: 'Flood Alert — SE Calgary' },
+    { id: 1, pos: [51.0447, -114.1219], type: 'flood', title: 'Flood Alert — West Calgary', is_verified: true,  severity: 'critical' },
+    { id: 2, pos: [51.0200, -113.9800], type: 'flood', title: 'Flood Alert — SE Calgary',  is_verified: true,  severity: 'high'     },
   ]);
   const [safeZones, setSafeZones] = useState([
     { id: 101, pos: [51.0900, -114.1300], title: 'Safe Zone A — NW Rec Centre' },
@@ -117,6 +130,15 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
       }
     }
   }, [isOffline]);
+
+  // Fetch live team statuses for government dashboard
+  useEffect(() => {
+    if (role !== 'government' || isOffline) return;
+    fetch('http://127.0.0.1:8000/api/responders/status')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setResponderStatuses(data))
+      .catch(err => console.error('[DRCS] Responder fetch error:', err));
+  }, [role, isOffline]);
 
   const handleCacheMap = useCallback(() => {
     try {
@@ -172,7 +194,13 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
               errorTileUrl="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
             />
             {incidents.map(inc => (
-              <Marker key={inc.id} position={inc.pos} icon={icons.flood}><Popup>{inc.title}</Popup></Marker>
+              <Marker key={inc.id} position={inc.pos} icon={getIncidentIcon(inc, role)}>
+                <Popup>
+                  <strong>{inc.title}</strong>
+                  {inc.is_verified && inc.severity && <><br /><span>Severity: {inc.severity}</span></>}
+                  {inc.is_verified === false && <><br /><span style={{ color: '#f59e0b' }}>Unverified</span></>}
+                </Popup>
+              </Marker>
             ))}
             {safeZones.map(zone => (
               <Marker key={zone.id} position={zone.pos} icon={icons.safe}><Popup>{zone.title}</Popup></Marker>
@@ -238,15 +266,6 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
               </button>
             )}
 
-            {/* Citizen: Emergency Alert → Evacuation */}
-            {role === 'citizen' && (
-              <button
-                onClick={() => onNavigate('evacuation')}
-                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: 'rgba(220,38,38,0.88)', backdropFilter: 'blur(5px)', color: '#fff', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', animation: 'none' }}
-              >
-                ⚠️ EMERGENCY ALERT — TAP TO EVACUATE
-              </button>
-            )}
           </div>
 
           {/* Dynamic Warnings */}
@@ -261,6 +280,33 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
             </div>
           )}
         </div>
+
+        {/* ── Team Status Panel (Government only) ── */}
+        {role === 'government' && teamPanelOpen && (
+          <div style={{
+            position: 'absolute', bottom: '80px', left: 0, right: 0, zIndex: 10,
+            backgroundColor: 'rgba(15,25,45,0.96)', backdropFilter: 'blur(8px)',
+            maxHeight: '220px', overflowY: 'auto', padding: '12px 16px',
+            borderTop: '1px solid rgba(154,170,221,0.3)',
+          }}>
+            <p style={{ color: '#9aaadd', fontWeight: '800', fontSize: '12px', letterSpacing: '1px', margin: '0 0 10px 0' }}>
+              TEAM STATUS
+            </p>
+            {responderStatuses.length === 0 ? (
+              <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>No responder updates yet.</p>
+            ) : (
+              [...responderStatuses].reverse().map(u => (
+                <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div>
+                    <span style={{ fontWeight: '700', fontSize: '12px', color: STATUS_COLORS[u.status] || '#fff' }}>{u.status}</span>
+                    {u.notes && <span style={{ fontSize: '11px', color: '#888', marginLeft: '6px' }}>— {u.notes}</span>}
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#666' }}>{u.responder_id}</span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* ── Bottom Navigation Bar ── */}
         <div style={{ 
@@ -313,16 +359,16 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
             </button>
           </div>
 
-          {/* Right Icon (Profile placeholder) */}
+          {/* Right Icon — team status toggle for government, profile for others */}
           <button
-            onClick={() => alert(
-              role === 'government'      ? 'Logged in as: Government Dispatcher' :
-              role === 'first_responder' ? 'Logged in as: First Responder' :
-              'Logged in as: Civilian'
-            )}
-            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.5 }}
+            onClick={() => role === 'government'
+              ? setTeamPanelOpen(prev => !prev)
+              : alert(role === 'first_responder' ? 'Logged in as: First Responder' : 'Logged in as: Civilian')
+            }
+            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: teamPanelOpen ? 1 : 0.5 }}
+            title={role === 'government' ? 'Team Status' : 'Profile'}
           >
-            👤
+            {role === 'government' ? '👥' : '👤'}
           </button>
           
         </div>
