@@ -3,6 +3,152 @@ import React, { useState, useEffect } from 'react';
 const SEVERITY_COLORS = { low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444' };
 const STATUS_COLORS   = { 'En Route': '#3b82f6', 'On Scene': '#22c55e', 'Need Assistance': '#ef4444', 'Complete': '#6b7280' };
 
+function buildPrintHTML({ tab, incidents, updatesByIncident, isResolved }) {
+  const now      = new Date().toLocaleString();
+  const isInternal = tab === 'internal';
+
+  const statusDot = (status) => {
+    const c = { 'En Route': '#3b82f6', 'On Scene': '#22c55e', 'Need Assistance': '#ef4444', 'Complete': '#6b7280' }[status] || '#888';
+    return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:6px;"></span>`;
+  };
+
+  const severityBadge = (severity) => {
+    if (!severity) return '';
+    const c = { low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444' }[severity] || '#888';
+    return `<span style="background:${c};color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;text-transform:capitalize;">${severity}</span>`;
+  };
+
+  const incidentBlocks = incidents.map(inc => {
+    if (isInternal) {
+      const updates = (updatesByIncident[inc.id] || [])
+        .slice()
+        .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+
+      const timelineRows = updates.length > 0
+        ? updates.map(u => `
+            <tr>
+              <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;color:#555;">${new Date(u.submittedAt).toLocaleString()}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;">${statusDot(u.status)}<strong>${u.status}</strong></td>
+              <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;color:#444;">${u.responder_id}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px;color:#666;font-style:italic;">${u.notes || '—'}</td>
+            </tr>`).join('')
+        : `<tr><td colspan="4" style="padding:10px;font-size:12px;color:#999;font-style:italic;">No responder updates recorded.</td></tr>`;
+
+      return `
+        <div class="incident-block">
+          <div class="incident-header">
+            <span class="inc-type">${inc.disasterType.toUpperCase()}</span>
+            <div>${inc.is_verified ? severityBadge(inc.severity) : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;">UNVERIFIED</span>'}
+              ${inc.hasCasualties ? '<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;margin-left:4px;">CASUALTIES</span>' : ''}
+            </div>
+          </div>
+          <table class="meta-table">
+            <tr><td class="meta-label">Reported</td><td>${new Date(inc.reportedAt).toLocaleString()}</td></tr>
+            ${inc.verifiedAt ? `<tr><td class="meta-label">Verified</td><td>${new Date(inc.verifiedAt).toLocaleString()}</td></tr>` : ''}
+            <tr><td class="meta-label">Coordinates</td><td>${inc.coordinates[0].toFixed(4)}°, ${inc.coordinates[1].toFixed(4)}°</td></tr>
+            ${inc.otherInfo ? `<tr><td class="meta-label">Notes</td><td style="font-style:italic;">"${inc.otherInfo}"</td></tr>` : ''}
+          </table>
+          <p style="font-size:12px;font-weight:700;color:#2c4a7a;margin:14px 0 6px;">Responder Timeline</p>
+          <table class="timeline-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th><th>Status</th><th>Responder ID</th><th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>${timelineRows}</tbody>
+          </table>
+        </div>`;
+    } else {
+      // Public summary
+      const resolved = isResolved(inc.id);
+      return `
+        <div class="incident-block">
+          <div class="incident-header">
+            <span class="inc-type">${inc.disasterType.toUpperCase()}</span>
+            <span style="background:${resolved ? '#22c55e' : '#f59e0b'};color:#fff;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;">${resolved ? 'Resolved' : 'Active'}</span>
+          </div>
+          <table class="meta-table">
+            <tr><td class="meta-label">Location</td><td>${inc.coordinates[1].toFixed(3)}°N, ${Math.abs(inc.coordinates[0]).toFixed(3)}°W</td></tr>
+            <tr><td class="meta-label">Date Reported</td><td>${new Date(inc.reportedAt).toLocaleDateString()}</td></tr>
+          </table>
+        </div>`;
+    }
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${isInternal ? 'Internal Incident Report' : 'Public Event Summary'} — ${now}</title>
+  <style>
+    @page { margin: 20mm 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; margin: 0; padding: 0; }
+
+    .page-header { border-bottom: 3px solid #2c4a7a; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .gov-title { font-size: 22px; font-weight: 900; color: #2c4a7a; margin: 0; }
+    .gov-sub   { font-size: 13px; color: #555; margin: 4px 0 0 0; }
+    .report-meta { text-align: right; font-size: 12px; color: #777; }
+    .report-type { font-size: 14px; font-weight: 800; color: #2c4a7a; }
+
+    .incident-block { border: 1px solid #dde3f5; border-radius: 10px; padding: 16px; margin-bottom: 20px; page-break-inside: avoid; }
+    .incident-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .inc-type { font-size: 17px; font-weight: 900; text-transform: capitalize; color: #1a1a1a; }
+
+    .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+    .meta-table td { padding: 4px 8px; font-size: 13px; vertical-align: top; }
+    .meta-label { font-weight: 700; color: #2c4a7a; width: 110px; white-space: nowrap; }
+
+    .timeline-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .timeline-table th { background: #eef0fa; color: #2c4a7a; font-weight: 700; padding: 7px 10px; text-align: left; border-bottom: 2px solid #c5cce8; }
+    .timeline-table td { padding: 6px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+
+    .no-data { text-align: center; padding: 30px; color: #999; font-style: italic; }
+    .footer { margin-top: 30px; border-top: 1px solid #dde3f5; padding-top: 12px; font-size: 11px; color: #aaa; display: flex; justify-content: space-between; }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <p class="gov-title">🚨 Disaster Response Coordination System</p>
+      <p class="gov-sub">Government of Alberta — Emergency Management Branch</p>
+    </div>
+    <div class="report-meta">
+      <p class="report-type">${isInternal ? 'INTERNAL INCIDENT REPORT' : 'PUBLIC EVENT SUMMARY'}</p>
+      <p>Generated: ${now}</p>
+    </div>
+  </div>
+
+  ${incidents.length === 0
+    ? '<p class="no-data">No incidents on record for this report period.</p>'
+    : incidentBlocks}
+
+  <div class="footer">
+    <span>DRCS — For official use ${isInternal ? 'only' : ''}</span>
+    <span>Total incidents: ${incidents.length}</span>
+  </div>
+
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+}
+
+function generatePDF({ tab, incidents, updatesByIncident, isResolved }) {
+  const html = buildPrintHTML({ tab, incidents, updatesByIncident, isResolved });
+  const win  = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    alert('Pop-up blocked. Please allow pop-ups for this page to export the PDF.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
 const PostEventReportScreen = ({ onNavigate }) => {
   const [tab, setTab]                       = useState('internal');
   const [incidents, setIncidents]           = useState([]);
@@ -183,8 +329,26 @@ const PostEventReportScreen = ({ onNavigate }) => {
           </div>
         )}
 
-        {/* Back button */}
-        <div style={{ marginTop: '20px' }}>
+        {/* Action Buttons */}
+        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+          {/* Download PDF */}
+          {!loading && incidents.length > 0 && (
+            <button
+              onClick={() => generatePDF({ tab, incidents, updatesByIncident, isResolved })}
+              style={{
+                width: '100%', padding: '16px', fontSize: '15px',
+                borderRadius: '30px', border: 'none',
+                backgroundColor: '#2c4a7a', color: '#fff',
+                fontWeight: '800', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                boxShadow: '0 4px 12px rgba(44,74,122,0.3)',
+              }}
+            >
+              📄 Download {tab === 'internal' ? 'Internal Report' : 'Public Summary'} PDF
+            </button>
+          )}
+
           <button
             onClick={() => onNavigate('dashboard')}
             style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '30px', border: 'none', backgroundColor: '#fff', color: '#1a1a1a', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
