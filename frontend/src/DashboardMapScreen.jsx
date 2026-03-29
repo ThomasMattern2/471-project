@@ -318,13 +318,21 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
           padding: '0 20px', boxSizing: 'border-box'
         }}>
           
-          {/* Left Icon — verify queue for government, playbook for others */}
+          {/* Left Icon — verify for government, admin panel for system_admin, playbook for others */}
           <button
-            onClick={() => onNavigate(role === 'government' ? 'verify' : 'playbook')}
+            onClick={() => onNavigate(
+              role === 'government'   ? 'verify' :
+              role === 'system_admin' ? 'admin'  :
+              'playbook'
+            )}
             style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.7 }}
-            title={role === 'government' ? 'Incident Verification' : 'Safety Playbooks'}
+            title={
+              role === 'government'   ? 'Incident Verification' :
+              role === 'system_admin' ? 'Admin Panel' :
+              'Safety Playbooks'
+            }
           >
-            {role === 'government' ? '🔍' : '📖'}
+            {role === 'government' ? '🔍' : role === 'system_admin' ? '⚙️' : '📖'}
           </button>
 
           {/* Center Floating Action Button (Dynamic based on Role) */}

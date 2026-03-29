@@ -6,6 +6,7 @@ import FirstResponderScreen from './FirstResponderScreen';
 import IncidentVerificationScreen from './IncidentVerificationScreen';
 import PostEventReportScreen from './PostEventReportScreen';
 import SafetyPlaybookScreen from './SafetyPlaybookScreen';
+import AdminPanelScreen from './AdminPanelScreen';
 
 const App = () => {
   // State to manage which screen is currently visible
@@ -41,6 +42,7 @@ const App = () => {
           <option value="citizen">👤 Civilian (Can Report)</option>
           <option value="government">🛡️ Government (Can Dispatch &amp; Verify)</option>
           <option value="first_responder">🚒 First Responder (Can Update Status)</option>
+          <option value="system_admin">⚙️ System Admin (Role Management)</option>
         </select>
       </div>
 
@@ -53,6 +55,7 @@ const App = () => {
         {currentView === 'verify'         && <IncidentVerificationScreen   onNavigate={setCurrentView} />}
         {currentView === 'postreport'     && <PostEventReportScreen        onNavigate={setCurrentView} />}
         {currentView === 'playbook'        && <SafetyPlaybookScreen         onNavigate={setCurrentView} />}
+        {currentView === 'admin'           && <AdminPanelScreen             onNavigate={setCurrentView} />}
       </div>
 
     </div>
