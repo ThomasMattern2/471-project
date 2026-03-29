@@ -5,6 +5,7 @@ import OfficialBroadcastScreen from './OfficialBroadcastScreen';
 import FirstResponderScreen from './FirstResponderScreen';
 import IncidentVerificationScreen from './IncidentVerificationScreen';
 import PostEventReportScreen from './PostEventReportScreen';
+import SafetyPlaybookScreen from './SafetyPlaybookScreen';
 
 const App = () => {
   // State to manage which screen is currently visible
@@ -51,6 +52,7 @@ const App = () => {
         {currentView === 'firstresponder' && <FirstResponderScreen         onNavigate={setCurrentView} />}
         {currentView === 'verify'         && <IncidentVerificationScreen   onNavigate={setCurrentView} />}
         {currentView === 'postreport'     && <PostEventReportScreen        onNavigate={setCurrentView} />}
+        {currentView === 'playbook'        && <SafetyPlaybookScreen         onNavigate={setCurrentView} />}
       </div>
 
     </div>

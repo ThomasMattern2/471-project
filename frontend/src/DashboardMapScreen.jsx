@@ -318,13 +318,13 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
           padding: '0 20px', boxSizing: 'border-box'
         }}>
           
-          {/* Left Icon — verify queue for government, dashboard home for others */}
+          {/* Left Icon — verify queue for government, playbook for others */}
           <button
-            onClick={() => onNavigate(role === 'government' ? 'verify' : 'dashboard')}
+            onClick={() => onNavigate(role === 'government' ? 'verify' : 'playbook')}
             style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: 0.7 }}
-            title={role === 'government' ? 'Incident Verification' : 'Dashboard'}
+            title={role === 'government' ? 'Incident Verification' : 'Safety Playbooks'}
           >
-            {role === 'government' ? '🔍' : '◎'}
+            {role === 'government' ? '🔍' : '📖'}
           </button>
 
           {/* Center Floating Action Button (Dynamic based on Role) */}
