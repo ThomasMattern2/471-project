@@ -1,10 +1,11 @@
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 import uuid
 import math
+import json
 
 app = FastAPI(title="Disaster Response Coordination System API")
 
@@ -247,3 +248,127 @@ async def create_user(
     }
     users_db.append(new_user)
     return {"status": "success", "user": new_user}
+
+
+# ─── S4G3A-27 / S4G3A-28: Bluetooth Mesh Simulation via WebSocket ──────────────
+#
+# DESIGN NOTE (S4G3A-27 — Research & Documentation)
+# ──────────────────────────────────────────────────
+# Real-world BLE mesh (Bluetooth 4.0+ with GATT) requires native platform APIs
+# (Android BLE, iOS CoreBluetooth) not available in a web browser. The Web
+# Bluetooth API covers single-device pairing only, not ad-hoc mesh.
+#
+# SIMULATION APPROACH: WebSocket broadcast on LAN
+#   - All clients on the same local network connect to ws://[server]:8000/ws/mesh
+#   - The server acts as a relay node, broadcasting every message to all peers
+#   - Each message carries a sender_id and display_name — no server-side auth
+#     required because the channel is implicitly local/physical-proximity scoped
+#   - In production, replace this relay with a BLE GATT characteristic write +
+#     notify loop, or a Wi-Fi Aware (NAN) UDP multicast on the same SSID
+#
+# MESSAGE ROUTING LOGIC (S4G3A-28)
+# ─────────────────────────────────
+# Packet schema:  { type, sender_id, display_name, text, timestamp }
+# Types:
+#   "join"    — peer announces presence; server broadcasts to all
+#   "message" — user-typed chat message; server broadcasts to all
+#   "leave"   — peer disconnects (generated server-side on WebSocketDisconnect)
+#
+# The server keeps an in-memory log of the last 100 messages for late-joiners.
+
+MESH_LOG_MAX = 100
+mesh_log: list = []          # rolling message history
+mesh_peers: dict = {}        # { ws: { sender_id, display_name } }
+
+class MeshConnectionManager:
+    """Simple broadcast relay — simulates BLE mesh on a local network."""
+
+    async def connect(self, ws: WebSocket, sender_id: str, display_name: str):
+        await ws.accept()
+        mesh_peers[ws] = {"sender_id": sender_id, "display_name": display_name}
+        join_pkt = {
+            "type": "join",
+            "sender_id": sender_id,
+            "display_name": display_name,
+            "text": f"{display_name} joined the mesh",
+            "timestamp": datetime.now().isoformat(),
+        }
+        mesh_log.append(join_pkt)
+        if len(mesh_log) > MESH_LOG_MAX:
+            mesh_log.pop(0)
+        await self._broadcast(join_pkt, exclude=None)
+
+    def disconnect(self, ws: WebSocket):
+        peer = mesh_peers.pop(ws, None)
+        if peer:
+            leave_pkt = {
+                "type": "leave",
+                "sender_id": peer["sender_id"],
+                "display_name": peer["display_name"],
+                "text": f"{peer['display_name']} left the mesh",
+                "timestamp": datetime.now().isoformat(),
+            }
+            mesh_log.append(leave_pkt)
+            if len(mesh_log) > MESH_LOG_MAX:
+                mesh_log.pop(0)
+            return leave_pkt
+        return None
+
+    async def relay(self, ws: WebSocket, raw: str):
+        try:
+            pkt = json.loads(raw)
+        except json.JSONDecodeError:
+            return
+        pkt["type"]      = "message"
+        pkt["timestamp"] = datetime.now().isoformat()
+        mesh_log.append(pkt)
+        if len(mesh_log) > MESH_LOG_MAX:
+            mesh_log.pop(0)
+        await self._broadcast(pkt, exclude=None)
+
+    async def _broadcast(self, pkt: dict, exclude):
+        dead = []
+        for peer_ws in list(mesh_peers):
+            if peer_ws is exclude:
+                continue
+            try:
+                await peer_ws.send_text(json.dumps(pkt))
+            except Exception:
+                dead.append(peer_ws)
+        for d in dead:
+            mesh_peers.pop(d, None)
+
+    async def broadcast_leave(self, pkt: dict):
+        await self._broadcast(pkt, exclude=None)
+
+mesh_manager = MeshConnectionManager()
+
+
+@app.websocket("/ws/mesh")
+async def mesh_websocket(
+    ws: WebSocket,
+    sender_id: str = "anon",
+    display_name: str = "Unknown",
+):
+    """S4G3A-28: WebSocket relay — simulates BLE mesh broadcast on LAN."""
+    await mesh_manager.connect(ws, sender_id, display_name)
+    # Send message history to the new peer
+    for pkt in mesh_log[:-1]:   # all but the join we just appended
+        try:
+            await ws.send_text(json.dumps({**pkt, "type": "history"}))
+        except Exception:
+            break
+    try:
+        while True:
+            data = await ws.receive_text()
+            await mesh_manager.relay(ws, data)
+    except WebSocketDisconnect:
+        leave_pkt = mesh_manager.disconnect(ws)
+        if leave_pkt:
+            await mesh_manager.broadcast_leave(leave_pkt)
+
+
+@app.get("/api/mesh/log")
+async def get_mesh_log():
+    """HTTP fallback: return last 100 mesh messages for polling-based clients."""
+    return mesh_log
