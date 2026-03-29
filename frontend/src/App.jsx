@@ -7,6 +7,7 @@ import IncidentVerificationScreen from './IncidentVerificationScreen';
 import PostEventReportScreen from './PostEventReportScreen';
 import SafetyPlaybookScreen from './SafetyPlaybookScreen';
 import AdminPanelScreen from './AdminPanelScreen';
+import BluetoothChatScreen from './BluetoothChatScreen';
 
 const App = () => {
   // State to manage which screen is currently visible
@@ -56,6 +57,7 @@ const App = () => {
         {currentView === 'postreport'     && <PostEventReportScreen        onNavigate={setCurrentView} />}
         {currentView === 'playbook'        && <SafetyPlaybookScreen         onNavigate={setCurrentView} />}
         {currentView === 'admin'           && <AdminPanelScreen             onNavigate={setCurrentView} />}
+        {currentView === 'bluetooth'       && <BluetoothChatScreen          onNavigate={setCurrentView} />}
       </div>
 
     </div>

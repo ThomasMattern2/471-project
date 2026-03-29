@@ -367,16 +367,18 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
             </button>
           </div>
 
-          {/* Right Icon — team status toggle for government, profile for others */}
+          {/* Right Icon — team status for government, bluetooth chat for others */}
           <button
             onClick={() => role === 'government'
               ? setTeamPanelOpen(prev => !prev)
-              : alert(role === 'first_responder' ? 'Logged in as: First Responder' : 'Logged in as: Civilian')
+              : role === 'system_admin'
+              ? alert('Logged in as: System Admin')
+              : onNavigate('bluetooth')
             }
             style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', opacity: teamPanelOpen ? 1 : 0.5 }}
-            title={role === 'government' ? 'Team Status' : 'Profile'}
+            title={role === 'government' ? 'Team Status' : role === 'system_admin' ? 'Profile' : 'Mesh Chat'}
           >
-            {role === 'government' ? '👥' : '👤'}
+            {role === 'government' ? '👥' : role === 'system_admin' ? '👤' : '💬'}
           </button>
           
         </div>
