@@ -7,13 +7,13 @@ const OfficialBroadcastScreen = ({ onNavigate }) => {
     center_coordinates: [-114.0719, 51.0447] // Defaulting to Calgary coords for demo
   });
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting]             = useState(false);
+  const [showNotificationPreview, setShowPreview]   = useState(false);
+  const [sentMessage, setSentMessage]               = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    console.log('Sending targeted broadcast:', broadcastData);
-    
     try {
       const response = await fetch('http://127.0.0.1:8000/api/broadcasts', {
         method: 'POST',
@@ -21,9 +21,9 @@ const OfficialBroadcastScreen = ({ onNavigate }) => {
         body: JSON.stringify(broadcastData)
       });
       if (response.ok) {
-        alert("Broadcast dispatched successfully to the targeted zone.");
-        setBroadcastData({ ...broadcastData, message: '' }); // Clear message on success
-        onNavigate('dashboard'); // Route back to map after sending
+        setSentMessage(broadcastData.message);
+        setBroadcastData({ ...broadcastData, message: '' });
+        setShowPreview(true); // Show simulated device notification
       }
     } catch (error) {
       console.error("Error sending broadcast:", error);
@@ -34,7 +34,39 @@ const OfficialBroadcastScreen = ({ onNavigate }) => {
   };
 
   return (
-    <div style={{ backgroundColor: '#1a1a1a', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+    <div style={{ backgroundColor: '#1a1a1a', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', position: 'relative' }}>
+
+      {/* ── Simulated Device Notification Preview (S4G3A-20) ── */}
+      {showNotificationPreview && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.88)', zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '30px' }}>
+          <p style={{ color: '#888', fontSize: '13px', marginBottom: '16px', textAlign: 'center', letterSpacing: '0.5px' }}>
+            📱 SIMULATED DEVICE NOTIFICATION
+          </p>
+
+          {/* Mock lock-screen notification card */}
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(24px)', borderRadius: '18px', padding: '18px', width: '100%', maxWidth: '340px', border: '1px solid rgba(255,255,255,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '26px' }}>🚨</span>
+              <div>
+                <p style={{ color: '#fff', fontWeight: '800', fontSize: '14px', margin: 0 }}>Emergency Alert</p>
+                <p style={{ color: '#aaa', fontSize: '11px', margin: '2px 0 0 0' }}>now · DRCS · Critical Priority</p>
+              </div>
+            </div>
+            <p style={{ color: '#f0f0f0', fontSize: '14px', lineHeight: '1.5', margin: 0 }}>{sentMessage}</p>
+          </div>
+
+          <p style={{ color: '#666', fontSize: '11px', marginTop: '14px', textAlign: 'center', maxWidth: '280px' }}>
+            In production, this alert overrides Do Not Disturb via OS-level Critical Alert priority.
+          </p>
+
+          <button
+            onClick={() => { setShowPreview(false); onNavigate('dashboard'); }}
+            style={{ marginTop: '24px', padding: '14px 48px', borderRadius: '30px', border: 'none', backgroundColor: '#fff', color: '#1a1a1a', fontWeight: '800', fontSize: '15px', cursor: 'pointer' }}
+          >
+            Done
+          </button>
+        </div>
+      )}
       
       <div style={{ 
         backgroundColor: '#c4d0df', // Cool slate blue matching your mockup
