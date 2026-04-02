@@ -29,7 +29,12 @@ const IncidentVerificationScreen = ({ onNavigate }) => {
     }
   };
 
-  useEffect(() => { fetchIncidents(); }, []);
+  // S4G3A-5: Auto-refresh unverified reports every 10 s
+  useEffect(() => {
+    fetchIncidents();
+    const interval = setInterval(fetchIncidents, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleVerify = async (incidentId) => {
     const severity = severitySelections[incidentId] || 'medium';
@@ -74,9 +79,10 @@ const IncidentVerificationScreen = ({ onNavigate }) => {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ fontSize: '22px', fontWeight: '900', margin: 0, color: '#1a1a1a' }}>
-            Unverified Reports
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontSize: '22px', fontWeight: '900', margin: 0, color: '#1a1a1a' }}>Unverified Reports</h1>
+            <span style={{ backgroundColor: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px' }}>● LIVE</span>
+          </div>
           <button
             onClick={fetchIncidents}
             style={{ padding: '8px 14px', borderRadius: '20px', border: 'none', backgroundColor: '#2c6e8a', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
