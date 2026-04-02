@@ -131,13 +131,17 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
     }
   }, [isOffline]);
 
-  // Fetch live team statuses for government dashboard
+  // S4G3A-35: Real-time status sync — poll every 5 s for all crew statuses
   useEffect(() => {
     if (role !== 'government' || isOffline) return;
-    fetch('http://127.0.0.1:8000/api/responders/status')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setResponderStatuses(data))
-      .catch(err => console.error('[DRCS] Responder fetch error:', err));
+    const sync = () =>
+      fetch('http://127.0.0.1:8000/api/responders/status')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setResponderStatuses(data))
+        .catch(err => console.error('[DRCS] Responder fetch error:', err));
+    sync();
+    const interval = setInterval(sync, 5000);
+    return () => clearInterval(interval);
   }, [role, isOffline]);
 
   const handleCacheMap = useCallback(() => {
@@ -289,9 +293,10 @@ const DashboardMapScreen = ({ onNavigate, role }) => {
             maxHeight: '220px', overflowY: 'auto', padding: '12px 16px',
             borderTop: '1px solid rgba(154,170,221,0.3)',
           }}>
-            <p style={{ color: '#9aaadd', fontWeight: '800', fontSize: '12px', letterSpacing: '1px', margin: '0 0 10px 0' }}>
-              TEAM STATUS
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <p style={{ color: '#9aaadd', fontWeight: '800', fontSize: '12px', letterSpacing: '1px', margin: 0 }}>TEAM STATUS</p>
+              <span style={{ backgroundColor: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', letterSpacing: '0.5px' }}>● LIVE</span>
+            </div>
             {responderStatuses.length === 0 ? (
               <p style={{ color: '#666', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>No responder updates yet.</p>
             ) : (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const STATUSES = [
   { value: 'En Route',        emoji: '🚒', color: '#3b82f6', desc: 'Dispatched and heading to scene',    isPublic: false },
@@ -8,11 +8,25 @@ const STATUSES = [
 ];
 
 const FirstResponderScreen = ({ onNavigate }) => {
+  const [activeTab, setActiveTab]           = useState('submit');
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [incidentId, setIncidentId]         = useState('');
   const [responderId, setResponderId]       = useState('R-' + Math.floor(Math.random() * 9000 + 1000));
   const [notes, setNotes]                   = useState('');
   const [isSubmitting, setIsSubmitting]     = useState(false);
+  const [crewStatuses, setCrewStatuses]     = useState([]);
+
+  // S4G3A-35: Real-time status sync — poll every 5 s for all crew statuses
+  useEffect(() => {
+    const sync = () =>
+      fetch('http://127.0.0.1:8000/api/responders/status')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setCrewStatuses([...data].reverse()))
+        .catch(err => console.error('[DRCS] Crew sync error:', err));
+    sync();
+    const interval = setInterval(sync, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,15 +78,68 @@ const FirstResponderScreen = ({ onNavigate }) => {
       }}>
 
         {/* Top Banner */}
-        <div style={{ backgroundColor: '#c8851a', padding: '12px', borderRadius: '10px', marginBottom: '25px', textAlign: 'center' }}>
+        <div style={{ backgroundColor: '#c8851a', padding: '12px', borderRadius: '10px', marginBottom: '16px', textAlign: 'center' }}>
           <span style={{ fontWeight: '800', fontSize: '14px', letterSpacing: '1px', color: '#fff' }}>🚒 FIRST RESPONDER STATUS</span>
         </div>
 
-        <h1 style={{ fontSize: '22px', fontWeight: '900', marginBottom: '20px', color: '#1a1a1a', textAlign: 'center' }}>
-          Update Your Status
-        </h1>
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          {['submit', 'crew'].map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1, padding: '10px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: '800', fontSize: '13px',
+                backgroundColor: activeTab === tab ? '#c8851a' : '#f5e6c8',
+                color: activeTab === tab ? '#fff' : '#5a3a00',
+              }}
+            >
+              {tab === 'submit' ? '📤 Submit Status' : '👥 All Crews'}
+            </button>
+          ))}
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+        {/* Crew Status Board */}
+        {activeTab === 'crew' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+              <span style={{ fontWeight: '900', fontSize: '16px', color: '#1a1a1a' }}>Crew Status Board</span>
+              <span style={{ backgroundColor: '#22c55e', color: '#fff', fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px' }}>● LIVE</span>
+            </div>
+            {crewStatuses.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f5e6c8', borderRadius: '16px', color: '#7a5a30', fontWeight: '600' }}>
+                No crew updates yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
+                {crewStatuses.map(u => {
+                  const s = STATUSES.find(s => s.value === u.status);
+                  return (
+                    <div key={u.id} style={{ backgroundColor: '#f5e6c8', borderRadius: '12px', padding: '12px 14px', borderLeft: `4px solid ${s?.color || '#ccc'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '800', fontSize: '14px', color: s?.color || '#1a1a1a' }}>{s?.emoji} {u.status}</span>
+                        <span style={{ fontSize: '11px', color: '#7a5a30', fontWeight: '700' }}>{u.responder_id}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>Incident: {u.incident_id}</div>
+                      {u.notes && <div style={{ fontSize: '12px', color: '#333', marginTop: '3px', fontStyle: 'italic' }}>"{u.notes}"</div>}
+                      <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>{new Date(u.submittedAt).toLocaleTimeString()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onNavigate('dashboard')}
+              style={{ marginTop: 'auto', paddingTop: '16px', width: '100%', padding: '16px', fontSize: '16px', borderRadius: '30px', border: 'none', backgroundColor: '#fff', color: '#1a1a1a', fontWeight: '800', cursor: 'pointer' }}
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'submit' && <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
 
           {/* Responder ID */}
           <div>
@@ -175,7 +242,7 @@ const FirstResponderScreen = ({ onNavigate }) => {
             </button>
           </div>
 
-        </form>
+        </form>}
       </div>
     </div>
   );
